@@ -1,33 +1,62 @@
 import requests
+from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QMessageBox
 
 API_BASE = "https://savychk1.fvds.ru/api/v1"
+ORGANIZATION = "MyCompany"
+APPLICATION  = "CMSClient"
 
 class ApiClient:
-    def __init__(self, access_token=None, refresh_token=None, parent=None):
-        self.access_token = access_token
-        self.refresh_token = refresh_token
-        self.parent = parent  # for UI error messages
+    def __init__(self, parent=None):
+        self.parent = parent
+        self.settings = QSettings(ORGANIZATION, APPLICATION)
+        self.access_token = None
+        self.refresh_token = None
+        self.load_tokens()
 
     def _headers(self, use_refresh=False):
         token = self.refresh_token if use_refresh else self.access_token
-        return {"Authorization": f"Bearer {token}"}
+        return {"Authorization": f"Bearer {token}"} if token else {}
+
+    def save_tokens(self):
+        self.settings.setValue("access_token", self.access_token)
+        self.settings.setValue("refresh_token", self.refresh_token)
+
+    def load_tokens(self):
+        at = self.settings.value("access_token", "")
+        rt = self.settings.value("refresh_token", "")
+        if at and rt:
+            self.access_token = at
+            self.refresh_token = rt
+
+    def clear_tokens(self):
+        self.settings.remove("access_token")
+        self.settings.remove("refresh_token")
+        self.access_token = None
+        self.refresh_token = None
 
     def login(self, login, password):
-        resp = requests.post(f"{API_BASE}/authorization", json={"login": login, "password": password})
+        resp = requests.post(f"{API_BASE}/authorization",
+                             json={"login": login, "password": password})
         resp.raise_for_status()
         data = resp.json()
-        self.access_token = data["access_token"]
+        self.access_token  = data["access_token"]
         self.refresh_token = data["refresh_token"]
+        self.save_tokens()
         return data
 
     def refresh_access(self):
-        resp = requests.post(f"{API_BASE}/authorization/refresh", headers=self._headers(use_refresh=True))
+        if not self.refresh_token:
+            return False
+        resp = requests.post(f"{API_BASE}/authorization/refresh",
+                             headers=self._headers(use_refresh=True))
         if resp.status_code == 401:
+            self.clear_tokens()
             return False
         resp.raise_for_status()
         data = resp.json()
         self.access_token = data["access_token"]
+        self.save_tokens()
         return True
 
     def get_chats(self):
