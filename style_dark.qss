@@ -31,11 +31,10 @@ QListWidget::item {
     border-radius: 8px;
 }
 QListWidget::item:selected {
-    background-color: $PRIMARY_COLOR;
-    color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.2);
 }
 QListWidget::item:hover {
-    background-color: #4db8ff;
+    background-color: rgba(0, 0, 0, 0.1)
 }
 
 QScrollBar:vertical, QScrollBar:horizontal {
@@ -45,14 +44,14 @@ QScrollBar:vertical, QScrollBar:horizontal {
 }
 
 QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
-    background-color: $PRIMARY_COLOR;
+    background-color: rgba(0, 0, 0, 0.2);
     border-radius: 100px;
     min-height: 20px;
     min-width: 20px;
 }
 
 QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {
-    background-color: #6d6d6d;
+    background-color: rgba(0, 0, 0, 0.4);
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
@@ -123,4 +122,12 @@ QLabel#topBarTitle {
     background-color: transparent;
     font-size: 18px;
     font-weight: bold;
+}
+
+QLabel#topBarUser {
+    color: #ffffff; 
+    background-color: transparent;
+    font-size: 14px; 
+    font-weight: 800;
+    margin-right: 8px;
 }

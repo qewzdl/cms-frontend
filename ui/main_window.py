@@ -7,13 +7,17 @@ MAIN_WINDOW_MIN_WIDTH = 900
 MAIN_WINDOW_MIN_HEIGHT = 600
 MAIN_WINDOW_RESIZABLE = True
 
-# Message Bubble Width Constraints
-MESSAGE_BUBBLE_MIN_WIDTH = 150
+# Message Bubble Width Constraints (can be changed dynamically)
+MESSAGE_BUBBLE_MIN_WIDTH = 100
 MESSAGE_BUBBLE_MAX_WIDTH = 400
 
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
-    QScrollArea, QLabel, QLineEdit, QPushButton, QMessageBox, QApplication
+    QWidget, QHBoxLayout, QVBoxLayout,
+    QListWidget, QListWidgetItem,
+    QScrollArea, QLabel,
+    QLineEdit, QPushButton,
+    QMessageBox, QApplication,
+    QSizePolicy, QFrame, QSpinBox, QFormLayout
 )
 from PySide6.QtCore import QTimer, Qt
 import style
@@ -21,11 +25,22 @@ from api.client import ApiClient
 from collections import OrderedDict
 from datetime import datetime
 
+class SelectableLabel(QLabel):
+    """QLabel с возможностью выделения текста, без QTextEdit."""
+    def __init__(self, text):
+        super().__init__(text)
+        self.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        self.setWordWrap(True)
+
 class MainWindow(QWidget):
-    def __init__(self, api_client=None):
+    def __init__(self, api_client=None, username=""):
         super().__init__()
         self.api = api_client or ApiClient(parent=self)
-        # apply window hints
+        self.username = username
+
+        self.bubble_min_width = MESSAGE_BUBBLE_MIN_WIDTH
+        self.bubble_max_width = MESSAGE_BUBBLE_MAX_WIDTH
+
         self.setMinimumSize(MAIN_WINDOW_MIN_WIDTH, MAIN_WINDOW_MIN_HEIGHT)
         if not MAIN_WINDOW_RESIZABLE:
             self.setFixedSize(self.minimumSize())
@@ -37,71 +52,85 @@ class MainWindow(QWidget):
         self.timer.start(5000)
 
     def _setup_ui(self):
-        # Overall vertical layout: topbar + content
-        main_vlayout = QVBoxLayout(self)
+        main_v = QVBoxLayout(self)
         # Top bar
         self.top_bar = QWidget()
         self.top_bar.setObjectName('topBar')
-        top_layout = QHBoxLayout(self.top_bar)
-        title_label = QLabel('CMS Client')
-        title_label.setObjectName('topBarTitle')
-        top_layout.addWidget(title_label)
-        top_layout.addStretch()
-        main_vlayout.addWidget(self.top_bar)
+        top_h = QHBoxLayout(self.top_bar)
+        lbl_title = QLabel('CMS Client')
+        lbl_title.setObjectName('topBarTitle')
+        lbl_user = QLabel(self.username)
+        lbl_user.setObjectName('topBarUser')
+        top_h.addWidget(lbl_title)
+        top_h.addStretch()
+        top_h.addWidget(lbl_user)
+        main_v.addWidget(self.top_bar)
 
-        # Content layout: chat list + messages
-        content_layout = QHBoxLayout()
-
-        # Chat list on the left
+        # Content
+        content_h = QHBoxLayout()
+        # Chats list
         self.chat_list = QListWidget()
-        self.chat_list.setObjectName('chatList')  # for styling rounded corners
+        self.chat_list.setObjectName('chatList')
         self.chat_list.currentItemChanged.connect(self._on_select)
-        content_layout.addWidget(self.chat_list, 1)
+        content_h.addWidget(self.chat_list, 1)
 
-        # Right pane: messages area and input/send
-        right_layout = QVBoxLayout()
-        # Scrollable messages area
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
+        # Messages area
+        right_v = QVBoxLayout()
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
         container = QWidget()
         self.messages_layout = QVBoxLayout(container)
         self.messages_layout.setAlignment(Qt.AlignTop)
-        self.scroll_area.setWidget(container)
-        right_layout.addWidget(self.scroll_area)
+        self.scroll.setWidget(container)
+        right_v.addWidget(self.scroll)
 
-        # Bottom row: input and send button
-        bottom = QHBoxLayout()
+        # Input row
+        bottom_h = QHBoxLayout()
         self.message_input = QLineEdit()
         self.message_input.setObjectName('messageInput')
-        bottom.addWidget(self.message_input)
-        self.send_btn = QPushButton("Send")
-        self.send_btn.setObjectName('sendButton')
+        bottom_h.addWidget(self.message_input)
+        self.send_btn = QPushButton('Send')
+        self.send_btn.setObjectName('sendBtn')
         self.send_btn.setFixedWidth(80)
         self.send_btn.clicked.connect(self._send)
-        bottom.addWidget(self.send_btn)
-        right_layout.addLayout(bottom)
+        bottom_h.addWidget(self.send_btn)
+        right_v.addLayout(bottom_h)
 
-        content_layout.addLayout(right_layout, 3)
-        main_vlayout.addLayout(content_layout)
+        content_h.addLayout(right_v, 3)
+        main_v.addLayout(content_h)
+
+    def _on_width_change(self):
+        self.bubble_min_width = self.min_width_spin.value()
+        self.bubble_max_width = self.max_width_spin.value()
+        if self.bubble_min_width > self.bubble_max_width:
+            self.bubble_max_width = self.bubble_min_width
+            self.max_width_spin.setValue(self.bubble_max_width)
+        self._load_messages()
 
     def _clear_messages(self):
         while self.messages_layout.count():
             item = self.messages_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.setParent(None)
+            w = item.widget()
+            if w:
+                w.setParent(None)
+            l = item.layout()
+            if l:
+                while l.count():
+                    child = l.takeAt(0)
+                    if child.widget():
+                        child.widget().setParent(None)
+                l.deleteLater()
 
     def _load_chats(self):
         try:
             chats = self.api.get_chats()
             self.chat_list.clear()
             for c in chats:
-                # display only username in chat list
                 item = QListWidgetItem(c['user_name'])
                 item.setData(Qt.UserRole, (c['id'], c['telegram_account_id']))
                 self.chat_list.addItem(item)
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            QMessageBox.critical(self, 'Error', str(e))
 
     def _on_select(self, current, _):
         if current:
@@ -117,36 +146,51 @@ class MainWindow(QWidget):
             groups = OrderedDict()
             for m in msgs:
                 dt = datetime.fromisoformat(m['date'])
-                date_key = dt.date()
-                groups.setdefault(date_key, []).append((dt, m))
+                key = dt.date()
+                groups.setdefault(key, []).append((dt, m))
+
             self._clear_messages()
-            for date_key, items in groups.items():
-                date_str = date_key.strftime('%d %B %Y')
-                date_label = QLabel(date_str)
-                date_label.setObjectName('dateLabel')
-                self.messages_layout.addWidget(date_label, alignment=Qt.AlignHCenter)
-                for dt, m in items:
+            for date_key in sorted(groups.keys()):
+                date_lbl = QLabel(date_key.strftime('%d %B %Y'))
+                date_lbl.setObjectName('dateLabel')
+                self.messages_layout.addWidget(date_lbl, alignment=Qt.AlignHCenter)
+                for dt, m in sorted(groups[date_key], key=lambda x: x[0]):
                     bubble = QWidget()
                     bubble.setObjectName('messageBubble')
                     bubble.setProperty('messageType', m['type'])
-                    bubble.setMinimumWidth(MESSAGE_BUBBLE_MIN_WIDTH)
-                    bubble.setMaximumWidth(MESSAGE_BUBBLE_MAX_WIDTH)
-                    bubble_layout = QVBoxLayout(bubble)
-                    bubble_layout.setContentsMargins(8, 4, 8, 4)
-                    msg_label = QLabel(m['message_text'])
-                    msg_label.setWordWrap(True)
-                    msg_label.setObjectName('messageLabel')
-                    time_label = QLabel(dt.strftime('%H:%M'))
-                    time_label.setObjectName('timeLabel')
-                    bubble_layout.addWidget(msg_label)
-                    bubble_layout.addWidget(time_label, alignment=Qt.AlignRight)
-                    alignment = Qt.AlignRight if m['type']=='outgoing' else Qt.AlignLeft
-                    self.messages_layout.addWidget(bubble, alignment=alignment)
-            self.scroll_area.verticalScrollBar().setValue(
-                self.scroll_area.verticalScrollBar().maximum()
-            )
+                    bubble.setMinimumWidth(self.bubble_min_width)
+                    bubble.setMaximumWidth(self.bubble_max_width)
+                    bubble.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum)
+
+                    bl = QVBoxLayout(bubble)
+                    bl.setContentsMargins(8, 4, 8, 4)
+
+                    msg_widget = SelectableLabel(m['message_text'])
+                    msg_widget.setObjectName('messageLabel')
+                    msg_widget.setMaximumWidth(self.bubble_max_width - 16)
+                    msg_widget.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum)
+                    msg_widget.adjustSize()
+                    bl.addWidget(msg_widget)
+
+                    time_lbl = QLabel(dt.strftime('%H:%M'))
+                    time_lbl.setObjectName('timeLabel')
+                    bl.addWidget(time_lbl, alignment=Qt.AlignRight)
+
+                    # --- Выравнивание через QHBoxLayout ---
+                    hlayout = QHBoxLayout()
+                    if m['type'] == 'outgoing':
+                        hlayout.addStretch()
+                        hlayout.addWidget(bubble, 0, Qt.AlignRight)
+                    else:
+                        hlayout.addWidget(bubble, 0, Qt.AlignLeft)
+                        hlayout.addStretch()
+                    self.messages_layout.addLayout(hlayout)
+
+            # auto-scroll
+            vsb = self.scroll.verticalScrollBar()
+            vsb.setValue(vsb.maximum())
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            QMessageBox.critical(self, 'Error', str(e))
 
     def _send(self):
         text = self.message_input.text().strip()
@@ -158,30 +202,22 @@ class MainWindow(QWidget):
             self.message_input.clear()
             self._load_messages()
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            QMessageBox.critical(self, 'Error', str(e))
 
     def _poll(self):
         self._load_messages()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyleSheet(style.load_styles(theme='light'))
     class MockApiClient(ApiClient):
-        def __init__(self):
-            super().__init__()
-            self.access_token = 'mock'
-            self.refresh_token = 'mock'
-        def get_chats(self):
-            return [{'id': 1, 'user_name': 'Test', 'telegram_account_id': 123, 'telegram_account_phone': '+700000'}]
-        def get_messages(self, chat_id):
-            return [
-                {'id':'1','user_id':chat_id,'message_text':'Hello!','date':'2025-04-26T12:00:00','type':'incoming','telegram_account_id':123},
-                {'id':'2','user_id':chat_id,'message_text':'Reply','date':'2025-04-26T12:01:00','type':'outgoing','telegram_account_id':123},
-            ]
-        def send_message(self, user_id, text, telegram_account_id):
-            print('Mock send', user_id, text)
-            return {}
+        def get_chats(self): return [{'id':1,'user_name':'TestUser','telegram_account_id':123,'telegram_account_phone':'+700'}]
+        def get_messages(self, chat_id): return [
+            {'id':'1','user_id':chat_id,'message_text':'ОченьдлинныйтекстДляПроверкиПереноса афшуташт фтуащтфщуатщфг угщфут','date':'2025-04-26T12:00:00','type':'incoming','telegram_account_id':123},
+            {'id':'2','user_id':chat_id,'message_text':'Replyа','date':'2025-04-26T12:01:00','type':'outgoing','telegram_account_id':123},
+        ]
+        def send_message(self, user_id, text, telegram_account_id): print('Mock send', user_id, text); return {}
     api = MockApiClient()
-    window = MainWindow(api)
+    window = MainWindow(api, 'YourLogin')
     window.show()
     sys.exit(app.exec())
