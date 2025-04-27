@@ -1,13 +1,10 @@
 import os, sys
-# ensure project root is in path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Window Settings
 MAIN_WINDOW_MIN_WIDTH = 900
 MAIN_WINDOW_MIN_HEIGHT = 600
 MAIN_WINDOW_RESIZABLE = True
 
-# Message Bubble Width Constraints (can be changed dynamically)
 MESSAGE_BUBBLE_MIN_WIDTH = 100
 MESSAGE_BUBBLE_MAX_WIDTH = 500
 
@@ -15,10 +12,8 @@ from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout,
     QListWidget, QListWidgetItem,
     QScrollArea, QLabel,
-    QLineEdit, QPushButton,
-    QMessageBox, QApplication,
-    QSizePolicy, QFrame, 
-    QSpinBox, QFormLayout,
+    QPushButton, QMessageBox, 
+    QApplication, QSizePolicy, 
     QTextEdit
 )
 from PySide6.QtCore import QTimer, Qt
@@ -28,7 +23,6 @@ from collections import OrderedDict
 from datetime import datetime
 
 class SelectableLabel(QLabel):
-    """QLabel с возможностью выделения текста, без QTextEdit."""
     def __init__(self, text):
         super().__init__(text)
         self.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
@@ -85,10 +79,10 @@ class MainWindow(QWidget):
         self.messages_layout = QVBoxLayout(container)
         self.messages_layout.setAlignment(Qt.AlignTop)
         self.scroll.setWidget(container)
+        container.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
         right_v.addWidget(self.scroll)
 
         bottom_h = QHBoxLayout()
-
         self.message_input = QTextEdit()
         self.message_input.setObjectName('messageInput')
         bottom_h.addWidget(self.message_input)
@@ -99,10 +93,8 @@ class MainWindow(QWidget):
         self.send_btn.clicked.connect(self._send)
         button_height = self.send_btn.sizeHint().height() + 4
         self.message_input.setFixedHeight(button_height)
-
         self.message_input.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.message_input.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
         self.message_input.textChanged.connect(
             lambda: self._adjust_input_height(button_height)
         )
@@ -113,18 +105,15 @@ class MainWindow(QWidget):
         content_h.addLayout(right_v, 3)
         main_v.addLayout(content_h)
 
-
     def _adjust_input_height(self, base_height, max_lines=5):
         doc = self.message_input.document()
         fm = self.message_input.fontMetrics()
         line_height = fm.lineSpacing()
         margin = 8
         max_height = base_height + line_height * (max_lines - 1) + margin
-
         doc_height = doc.size().height()
         new_height = max(base_height, int(doc_height) + margin)
         new_height = min(new_height, max_height)
-
         self.message_input.setFixedHeight(new_height)
 
     def _on_width_change(self):
@@ -140,13 +129,13 @@ class MainWindow(QWidget):
             item = self.messages_layout.takeAt(0)
             w = item.widget()
             if w:
-                w.setParent(None)
+                w.deleteLater()
             l = item.layout()
             if l:
                 while l.count():
                     child = l.takeAt(0)
                     if child.widget():
-                        child.widget().setParent(None)
+                        child.widget().deleteLater()
                 l.deleteLater()
 
     def _load_chats(self):
@@ -197,13 +186,14 @@ class MainWindow(QWidget):
 
                     msg_widget.setMaximumWidth(self.bubble_max_width - 16)
                     msg_widget.adjustSize()
-                    text_width = msg_widget.fontMetrics().boundingRect(0, 0, self.bubble_max_width-16, 1000, Qt.TextWordWrap, m['message_text']).width()
+                    text_width = msg_widget.fontMetrics().boundingRect(
+                        0, 0, self.bubble_max_width-16, 1000, Qt.TextWordWrap, m['message_text']
+                    ).width()
                     bubble_width = max(self.bubble_min_width, min(text_width + 24, self.bubble_max_width))
                     bubble.setMinimumWidth(bubble_width)
                     bubble.setMaximumWidth(bubble_width)
 
                     bl.addWidget(msg_widget)
-
                     time_lbl = QLabel(dt.strftime('%H:%M'))
                     time_lbl.setObjectName('timeLabel')
                     bl.addWidget(time_lbl, alignment=Qt.AlignRight)
@@ -216,6 +206,7 @@ class MainWindow(QWidget):
                         hlayout.addWidget(bubble, 0, Qt.AlignLeft)
                         hlayout.addStretch()
                     self.messages_layout.addLayout(hlayout)
+            self.messages_layout.addStretch()
 
             vsb = self.scroll.verticalScrollBar()
             vsb.setValue(vsb.maximum())

@@ -29,7 +29,7 @@ QListWidget {
 QListWidget::item {
     padding: 10px;
     margin: 5px;
-    border-radius: 8px;
+    border-radius: 4px;
 }
 QListWidget::item:selected {
     background-color: rgba(0, 0, 0, 0.1);
@@ -47,7 +47,7 @@ QScrollBar:vertical, QScrollBar:horizontal {
 
 QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
     background-color: rgba(0, 0, 0, 0.1);
-    border-radius: 100px;
+    border-radius: 2.5px;
     min-height: 20px;
     min-width: 20px;
 }
