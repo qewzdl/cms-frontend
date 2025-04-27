@@ -21,6 +21,7 @@ QLineEdit, QTextEdit {
     border-radius: 15px;
     padding: 4px;
     color: #2b2b2b;
+    border: none;
 }
 QListWidget {
     background-color: #ffffff;

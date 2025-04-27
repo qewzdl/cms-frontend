@@ -1,10 +1,17 @@
 import requests
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QMessageBox
+from dotenv import load_dotenv
+import os
+from pathlib import Path
 
-API_BASE = "https://savychk1.fvds.ru/api/v1"
-ORGANIZATION = "MyCompany"
-APPLICATION  = "CMSClient"
+dotenv_path = Path(__file__).resolve().parents[1] / '.env'
+
+load_dotenv(dotenv_path=dotenv_path)
+
+API_BASE = os.getenv("API_BASE")
+ORGANIZATION = os.getenv("ORGANIZATION")
+APPLICATION = os.getenv("APPLICATION")
 
 class ApiClient:
     def __init__(self, parent=None):

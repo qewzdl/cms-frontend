@@ -8,6 +8,8 @@ MAIN_WINDOW_RESIZABLE = True
 MESSAGE_BUBBLE_MIN_WIDTH = 100
 MESSAGE_BUBBLE_MAX_WIDTH = 500
 
+MESSAGE_LOADING_INTERVAL = 5
+
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout,
     QListWidget, QListWidgetItem,
@@ -45,7 +47,7 @@ class MainWindow(QWidget):
         self._load_chats()
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._poll)
-        self.timer.start(5000)
+        self.timer.start(MESSAGE_LOADING_INTERVAL * 1000)
 
     def _setup_ui(self):
         main_v = QVBoxLayout(self)
@@ -158,6 +160,10 @@ class MainWindow(QWidget):
         if not getattr(self, 'current_chat', None):
             return
         chat_id, _ = self.current_chat
+
+        vsb = self.scroll.verticalScrollBar()
+        at_bottom = vsb.value() >= (vsb.maximum() - 20)
+
         try:
             msgs = self.api.get_messages(chat_id)
             groups = OrderedDict()
@@ -208,8 +214,8 @@ class MainWindow(QWidget):
                     self.messages_layout.addLayout(hlayout)
             self.messages_layout.addStretch()
 
-            vsb = self.scroll.verticalScrollBar()
-            vsb.setValue(vsb.maximum())
+            if at_bottom:
+                vsb.setValue(vsb.maximum())
         except Exception as e:
             QMessageBox.critical(self, 'Error', str(e))
 
