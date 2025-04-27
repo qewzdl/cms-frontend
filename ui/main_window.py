@@ -154,25 +154,25 @@ class MainWindow(QWidget):
     def _on_select(self, current, _):
         if current:
             self.current_chat = current.data(Qt.UserRole)
-            self._load_messages()
+            self._load_messages(scroll_to_bottom=True)
 
-    def _load_messages(self):
+    def _load_messages(self, scroll_to_bottom=False):
         if not getattr(self, 'current_chat', None):
             return
         chat_id, _ = self.current_chat
 
-        vsb = self.scroll.verticalScrollBar()
-        at_bottom = vsb.value() >= (vsb.maximum() - 20)
-
         try:
             msgs = self.api.get_messages(chat_id)
             groups = OrderedDict()
+            last_bubble = None
+            bubbles = []
+
+            self._clear_messages()
             for m in msgs:
                 dt = datetime.fromisoformat(m['date'])
                 key = dt.date()
                 groups.setdefault(key, []).append((dt, m))
 
-            self._clear_messages()
             for date_key in sorted(groups.keys()):
                 date_lbl = QLabel(date_key.strftime('%d %B %Y'))
                 date_lbl.setObjectName('dateLabel')
@@ -212,10 +212,17 @@ class MainWindow(QWidget):
                         hlayout.addWidget(bubble, 0, Qt.AlignLeft)
                         hlayout.addStretch()
                     self.messages_layout.addLayout(hlayout)
+                    last_bubble = bubble
+                    bubbles.append(bubble)
             self.messages_layout.addStretch()
 
-            if at_bottom:
-                vsb.setValue(vsb.maximum())
+            if scroll_to_bottom and last_bubble is not None:
+                def ensure_bottom():
+                    self.scroll.ensureWidgetVisible(last_bubble)
+                QTimer.singleShot(0, ensure_bottom)
+                QTimer.singleShot(30, ensure_bottom)
+                QTimer.singleShot(100, ensure_bottom)
+
         except Exception as e:
             QMessageBox.critical(self, 'Error', str(e))
 
