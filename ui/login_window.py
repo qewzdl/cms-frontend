@@ -7,7 +7,7 @@ LOGIN_WINDOW_MIN_HEIGHT = 200
 LOGIN_WINDOW_RESIZABLE = False
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QApplication
-import style
+import styles.style as style
 from api.client import ApiClient
 from ui.main_window import MainWindow
 

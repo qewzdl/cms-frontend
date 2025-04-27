@@ -1,7 +1,7 @@
 import sys
 import os
 from PySide6.QtWidgets import QApplication
-import style
+import styles.style as style
 from api.client import ApiClient
 from ui.login_window import LoginWindow
 from ui.main_window import MainWindow

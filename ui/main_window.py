@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QTextEdit
 )
 from PySide6.QtCore import QTimer, Qt
-import style
+import styles.style as style
 from api.client import ApiClient
 from collections import OrderedDict
 from datetime import datetime
