@@ -17,7 +17,9 @@ from PySide6.QtWidgets import (
     QScrollArea, QLabel,
     QLineEdit, QPushButton,
     QMessageBox, QApplication,
-    QSizePolicy, QFrame, QSpinBox, QFormLayout
+    QSizePolicy, QFrame, 
+    QSpinBox, QFormLayout,
+    QTextEdit
 )
 from PySide6.QtCore import QTimer, Qt
 import style
@@ -53,7 +55,6 @@ class MainWindow(QWidget):
 
     def _setup_ui(self):
         main_v = QVBoxLayout(self)
-        # Top bar
         self.top_bar = QWidget()
         self.top_bar.setObjectName('topBar')
         top_h = QHBoxLayout(self.top_bar)
@@ -64,17 +65,19 @@ class MainWindow(QWidget):
         top_h.addWidget(lbl_title)
         top_h.addStretch()
         top_h.addWidget(lbl_user)
+        logout_btn = QPushButton("Logout")
+        logout_btn.setObjectName("logoutButton")
+        logout_btn.setFixedWidth(70)
+        logout_btn.clicked.connect(self._logout)
+        top_h.addWidget(logout_btn)
         main_v.addWidget(self.top_bar)
 
-        # Content
         content_h = QHBoxLayout()
-        # Chats list
         self.chat_list = QListWidget()
         self.chat_list.setObjectName('chatList')
         self.chat_list.currentItemChanged.connect(self._on_select)
         content_h.addWidget(self.chat_list, 1)
 
-        # Messages area
         right_v = QVBoxLayout()
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -84,20 +87,45 @@ class MainWindow(QWidget):
         self.scroll.setWidget(container)
         right_v.addWidget(self.scroll)
 
-        # Input row
         bottom_h = QHBoxLayout()
-        self.message_input = QLineEdit()
+
+        self.message_input = QTextEdit()
         self.message_input.setObjectName('messageInput')
         bottom_h.addWidget(self.message_input)
+
         self.send_btn = QPushButton('Send')
         self.send_btn.setObjectName('sendBtn')
         self.send_btn.setFixedWidth(80)
         self.send_btn.clicked.connect(self._send)
+        button_height = self.send_btn.sizeHint().height() + 4
+        self.message_input.setFixedHeight(button_height)
+
+        self.message_input.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.message_input.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        self.message_input.textChanged.connect(
+            lambda: self._adjust_input_height(button_height)
+        )
+
         bottom_h.addWidget(self.send_btn)
         right_v.addLayout(bottom_h)
 
         content_h.addLayout(right_v, 3)
         main_v.addLayout(content_h)
+
+
+    def _adjust_input_height(self, base_height, max_lines=5):
+        doc = self.message_input.document()
+        fm = self.message_input.fontMetrics()
+        line_height = fm.lineSpacing()
+        margin = 8
+        max_height = base_height + line_height * (max_lines - 1) + margin
+
+        doc_height = doc.size().height()
+        new_height = max(base_height, int(doc_height) + margin)
+        new_height = min(new_height, max_height)
+
+        self.message_input.setFixedHeight(new_height)
 
     def _on_width_change(self):
         self.bubble_min_width = self.min_width_spin.value()
@@ -167,11 +195,8 @@ class MainWindow(QWidget):
                     msg_widget.setWordWrap(True)
                     msg_widget.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum)
 
-                    # -- Измеряем ширину текста с ограничением по max_width --
-                    # Ограничим ширину текста для word wrap
                     msg_widget.setMaximumWidth(self.bubble_max_width - 16)
                     msg_widget.adjustSize()
-                    # "natural" width текста в label
                     text_width = msg_widget.fontMetrics().boundingRect(0, 0, self.bubble_max_width-16, 1000, Qt.TextWordWrap, m['message_text']).width()
                     bubble_width = max(self.bubble_min_width, min(text_width + 24, self.bubble_max_width))
                     bubble.setMinimumWidth(bubble_width)
@@ -192,14 +217,13 @@ class MainWindow(QWidget):
                         hlayout.addStretch()
                     self.messages_layout.addLayout(hlayout)
 
-            # auto-scroll
             vsb = self.scroll.verticalScrollBar()
             vsb.setValue(vsb.maximum())
         except Exception as e:
             QMessageBox.critical(self, 'Error', str(e))
 
     def _send(self):
-        text = self.message_input.text().strip()
+        text = self.message_input.toPlainText().strip()
         if not text or not getattr(self, 'current_chat', None):
             return
         user_id, tg_id = self.current_chat
@@ -213,17 +237,24 @@ class MainWindow(QWidget):
     def _poll(self):
         self._load_messages()
 
+    def _logout(self):
+        from ui.login_window import LoginWindow
+        self.api.clear_tokens()
+        self.login_window = LoginWindow(self.api)
+        self.login_window.show()
+        self.close()
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyleSheet(style.load_styles(theme='light'))
     class MockApiClient(ApiClient):
         def get_chats(self): return [{'id':1,'user_name':'TestUser','telegram_account_id':123,'telegram_account_phone':'+700'}]
         def get_messages(self, chat_id): return [
-            {'id':'1','user_id':chat_id,'message_text':'ОченьдлинныйтекстДляПроверкиПереноса афшуташт фтуащтфщуатщфг угщфут','date':'2025-04-26T12:00:00','type':'incoming','telegram_account_id':123},
-            {'id':'2','user_id':chat_id,'message_text':'Replyа','date':'2025-04-26T12:01:00','type':'outgoing','telegram_account_id':123},
+            {'id':'1','user_id':chat_id,'message_text':'ОченьдлинныйтекстДляПроверкиПереноса','date':'2025-04-26T12:00:00','type':'incoming','telegram_account_id':123},
+            {'id':'2','user_id':chat_id,'message_text':'Reply','date':'2025-04-26T12:01:00','type':'outgoing','telegram_account_id':123},
         ]
         def send_message(self, user_id, text, telegram_account_id): print('Mock send', user_id, text); return {}
     api = MockApiClient()
-    window = MainWindow(api, 'YourLogin')
+    window = MainWindow(api, 'Your Login')
     window.show()
     sys.exit(app.exec())

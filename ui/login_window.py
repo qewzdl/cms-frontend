@@ -1,5 +1,4 @@
 import os, sys
-# ensure project root is in path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Window Settings
@@ -44,7 +43,6 @@ class LoginWindow(QWidget):
             return
         try:
             self.api.login(login, pwd)
-            # pass login to main window for display
             self.main_window = MainWindow(self.api, login)
             self.main_window.show()
             self.close()
@@ -54,7 +52,6 @@ class LoginWindow(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyleSheet(style.load_styles(theme="light"))
-    # Mock for standalone testing
     class MockApiClient(ApiClient):
         def __init__(self):
             super().__init__()

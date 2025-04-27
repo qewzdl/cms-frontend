@@ -14,7 +14,6 @@ class ApiClient:
         self.refresh_token = None
         self.username = None
         self.load_tokens()
-        self.username = None
 
     def _headers(self, use_refresh=False):
         token = self.refresh_token if use_refresh else self.access_token

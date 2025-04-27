@@ -8,8 +8,7 @@ from ui.main_window import MainWindow
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    # load and apply style
-    app.setStyleSheet(style.load_styles(theme="dark"))
+    app.setStyleSheet(style.load_styles(theme="light"))
 
     api = ApiClient()
     if api.access_token and api.refresh_access():
